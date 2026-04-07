@@ -1,6 +1,7 @@
 import os.path
 import subprocess
 from config import PYTHON_EXECUTION_TIMEOUT_SECONDS
+from google.genai import types
 
 def run_python_file(working_directory, file_path, args=None):
     try:
@@ -41,3 +42,25 @@ def run_python_file(working_directory, file_path, args=None):
         return output
     except Exception as e:
         return f'Error: executing Python file: {e}'
+
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description=f"Runs the given python file relative to the working directory, including any (optional) given arguments to that file.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="File path to retrieve the contents of, relative to the working directory",
+            ),
+            "args": types.Schema(
+                type=types.Type.ARRAY,
+                description="Potential arguments to the specified python file to be run.",
+                items=types.Schema(
+                    type=types.Type.STRING
+                )
+            )
+        },
+        required=["file_path"],
+    ),
+)
