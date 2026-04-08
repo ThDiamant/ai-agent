@@ -35,40 +35,51 @@ available_functions = types.Tool(
     ],
 )
 
-response = client.models.generate_content(
-    model='gemini-2.5-flash',
-    contents=messages,
-    config = types.GenerateContentConfig(
-        tools = [available_functions],
-        system_instruction = system_prompt
+for _ in range(20):
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=messages,
+        config = types.GenerateContentConfig(
+            tools = [available_functions],
+            system_instruction = system_prompt
+        )
     )
-)
 
-if not response.usage_metadata:
-    raise RuntimeError('No usage metadata found')
+    if response.candidates:
+        for candidate in response.candidates:
+            messages.append(candidate.content)
 
-if response.function_calls:
-    function_results = []
-    for function_call in response.function_calls:
-        function_call_result = call_function(function_call)
-        if not function_call_result.parts:
-            raise Exception("Function call did not return any result")
+    if not response.usage_metadata:
+        raise RuntimeError('No usage metadata found')
 
-        if not function_call_result.parts[0].function_response:
-            raise Exception("Function call did not return any response")
+    if response.function_calls:
+        function_results = []
+        for function_call in response.function_calls:
+            function_call_result = call_function(function_call, args.verbose)
+            if not function_call_result.parts:
+                raise Exception("Function call did not return any result")
 
-        if not function_call_result.parts[0].function_response.response:
-            raise Exception("Function call did not return any response")
+            if not function_call_result.parts[0].function_response:
+                raise Exception("Function call did not return any response")
 
-        function_results.append(function_call_result.parts[0])
+            if not function_call_result.parts[0].function_response.response:
+                raise Exception("Function call did not return any response")
+
+            function_results.append(function_call_result.parts[0])
+            messages.append(types.Content(role="user", parts=function_results))
+            if args.verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+    else:
         if args.verbose:
-            print(f"-> {function_call_result.parts[0].function_response.response}")
-else:
-    print(response.text)
+            prompt_token_count = response.usage_metadata.prompt_token_count
+            response_token_count = response.usage_metadata.candidates_token_count
+            print(f"User prompt: {user_prompt}")
+            print(f"Prompt tokens: {prompt_token_count}")
+            print(f"Response tokens: {response_token_count}")
 
-if args.verbose:
-    prompt_token_count = response.usage_metadata.prompt_token_count
-    response_token_count = response.usage_metadata.candidates_token_count
-    print(f"User prompt: {user_prompt}")
-    print(f"Prompt tokens: {prompt_token_count}")
-    print(f"Response tokens: {response_token_count}")
+        print(response.text)
+        exit(0)
+
+print("ERROR: Maximum number of iterations exceeded")
+exit(1)
+
